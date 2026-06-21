@@ -14,6 +14,8 @@ st.set_page_config(
     layout="wide",
 )
 
+_DEFAULT_ROWS = 6
+
 
 @st.cache_resource
 def get_loader() -> DatabaseLoader:
@@ -22,24 +24,32 @@ def get_loader() -> DatabaseLoader:
     return loader
 
 
-def parse_inputs(isin_text: str, weight_text: str) -> tuple[list[str], list[float], str | None]:
-    isins = [x.strip() for x in isin_text.strip().splitlines() if x.strip()]
-    raw_weights = [x.strip() for x in weight_text.strip().splitlines() if x.strip()]
+def get_portfolio_input() -> tuple[list[str], list[float], str | None]:
+    st.subheader("Saisie du portefeuille")
+    st.caption("Remplissez les lignes ci-dessous. Laissez le poids à 0 pour équipondérer automatiquement.")
 
-    if len(isins) == 0:
-        return [], [], "Veuillez saisir au moins un ISIN."
+    empty = pd.DataFrame({"ISIN": [""] * _DEFAULT_ROWS, "Poids (%)": [0.0] * _DEFAULT_ROWS})
 
-    if len(raw_weights) == 0:
+    edited = st.data_editor(
+        empty,
+        use_container_width=True,
+        num_rows="dynamic",
+        column_config={
+            "ISIN": st.column_config.TextColumn("ISIN", help="Code ISIN de la valeur", width="medium"),
+            "Poids (%)": st.column_config.NumberColumn("Poids (%)", help="Poids en % (ex: 25 pour 25%)", min_value=0.0, max_value=100.0, step=0.5, format="%.1f"),
+        },
+        hide_index=True,
+    )
+
+    rows = edited[edited["ISIN"].astype(str).str.strip() != ""]
+    if rows.empty:
+        return [], [], None
+
+    isins = rows["ISIN"].astype(str).str.strip().tolist()
+    weights = rows["Poids (%)"].fillna(0.0).tolist()
+
+    if all(w == 0 for w in weights):
         weights = [1.0 / len(isins)] * len(isins)
-        return isins, weights, None
-
-    if len(raw_weights) != len(isins):
-        return [], [], f"Nombre d'ISIN ({len(isins)}) ≠ nombre de poids ({len(raw_weights)})."
-
-    try:
-        weights = [float(w.replace(",", ".").replace("%", "")) for w in raw_weights]
-    except ValueError:
-        return [], [], "Les poids doivent être des nombres (ex: 25 ou 25.5 ou 25%)."
 
     return isins, weights, None
 
@@ -59,25 +69,16 @@ def main():
     col_left, col_right = st.columns([1, 1], gap="large")
 
     with col_left:
-        st.subheader("Saisie du portefeuille")
-        isin_input = st.text_area(
-            "ISIN (un par ligne)",
-            placeholder="FR01528475\nFR1545224\nUS556151562",
-            height=180,
-        )
-        weight_input = st.text_area(
-            "Poids (un par ligne, en % ou valeur — laisser vide pour équipondérer)",
-            placeholder="40\n35\n25",
-            height=180,
-        )
+        isins, weights, error = get_portfolio_input()
         analyze_btn = st.button("Analyser", type="primary", use_container_width=True)
 
     with col_right:
         st.subheader("Aide")
         st.info(
-            "**Format ISIN** : saisissez un code ISIN par ligne, sans espaces.\n\n"
-            "**Poids** : en pourcentage (ex: `40` pour 40%) ou en valeur absolue. "
+            "**ISIN** : saisissez le code ISIN de chaque valeur.\n\n"
+            "**Poids** : en pourcentage (ex: `40` pour 40%). "
             "Les poids sont normalisés automatiquement à 100%.\n\n"
+            "Laissez tous les poids à `0` pour équipondérer.\n\n"
             "**ISIN disponibles dans la base :**\n"
             + "\n".join(f"- `{i}`" for i in loader.list_isins())
         )
@@ -85,9 +86,12 @@ def main():
     if not analyze_btn:
         return
 
-    isins, weights, error = parse_inputs(isin_input, weight_input)
     if error:
         st.error(error)
+        return
+
+    if not isins:
+        st.warning("Veuillez saisir au moins un ISIN.")
         return
 
     portfolio = Portfolio(loader)
@@ -109,7 +113,6 @@ def main():
     st.subheader("Composition du portefeuille")
     st.dataframe(portfolio.summary_table(), use_container_width=True, hide_index=True)
 
-    # Tableau positions > 5%
     overweight = portfolio.overweight_positions(threshold=5.0)
     if not overweight.empty:
         st.divider()
@@ -134,26 +137,22 @@ def main():
 
     with tab_geo:
         geo_df = portfolio.geo_breakdown()
-        fig = geo_chart(geo_df)
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(geo_chart(geo_df), use_container_width=True)
         st.dataframe(geo_df.style.format({"Poids (%)": "{:.2f}%"}), hide_index=True)
 
     with tab_actions:
         hold_df = portfolio.holdings_breakdown()
-        fig = holdings_chart(hold_df)
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(holdings_chart(hold_df), use_container_width=True)
         st.dataframe(hold_df.style.format({"Poids (%)": "{:.2f}%"}), hide_index=True)
 
     with tab_devise:
         cur_df = portfolio.currency_breakdown()
-        fig = currency_chart(cur_df)
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(currency_chart(cur_df), use_container_width=True)
         st.dataframe(cur_df.style.format({"Poids (%)": "{:.2f}%"}), hide_index=True)
 
     with tab_cat:
         cat_df = portfolio.category_breakdown()
-        fig = category_chart(cat_df)
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(category_chart(cat_df), use_container_width=True)
         st.dataframe(cat_df.style.format({"Poids (%)": "{:.2f}%"}), hide_index=True)
 
 
