@@ -1,10 +1,12 @@
 import streamlit as st
 import pandas as pd
 from pathlib import Path
+from datetime import date
 
 from data_loader import DatabaseLoader
 from portfolio import Portfolio
 from charts import geo_chart, currency_chart, holdings_chart, category_chart
+from report import generate_pdf
 
 DB_PATH = Path(__file__).parent / "data" / "base_de_donnees.xlsx"
 
@@ -152,8 +154,31 @@ def main():
 
     with tab_cat:
         cat_df = portfolio.category_breakdown()
-        st.plotly_chart(category_chart(cat_df), use_container_width=True)
+        fig_cat = category_chart(cat_df)
+        st.plotly_chart(fig_cat, use_container_width=True)
         st.dataframe(cat_df.style.format({"Poids (%)": "{:.2f}%"}), hide_index=True)
+
+    st.divider()
+    st.subheader("Téléchargement")
+
+    with st.spinner("Génération du rapport PDF..."):
+        pdf_bytes = generate_pdf(
+            summary_df=portfolio.summary_table(),
+            overweight_df=overweight,
+            fig_geo=geo_chart(portfolio.geo_breakdown()),
+            fig_holdings=holdings_chart(portfolio.holdings_breakdown()),
+            fig_currency=currency_chart(portfolio.currency_breakdown()),
+            fig_category=fig_cat,
+        )
+
+    st.download_button(
+        label="📄 Télécharger le rapport PDF",
+        data=pdf_bytes,
+        file_name=f"rapport_portefeuille_{date.today().strftime('%Y%m%d')}.pdf",
+        mime="application/pdf",
+        type="primary",
+        use_container_width=True,
+    )
 
 
 if __name__ == "__main__":
