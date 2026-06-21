@@ -90,7 +90,9 @@ def generate_pdf(
     # ── PAGE 1 ──────────────────────────────────────────────────────────────
     story.append(Spacer(1, 0.5 * cm))
     story.append(Paragraph("Rapport d'Analyse de Portefeuille", S["title"]))
+    story.append(Spacer(1, 0.3 * cm))
     story.append(Paragraph(f"Généré le {date.today().strftime('%d/%m/%Y')}", S["subtitle"]))
+    story.append(Spacer(1, 0.4 * cm))
     story.append(HRFlowable(width="100%", thickness=2, color=ACCENT_COLOR, spaceAfter=12))
 
     story.append(Paragraph("Composition du portefeuille", S["section"]))
@@ -105,7 +107,9 @@ def generate_pdf(
     story.append(PageBreak())
 
     # ── PAGE 2 ──────────────────────────────────────────────────────────────
+    story.append(Spacer(1, 0.5 * cm))
     story.append(Paragraph("Analyses Graphiques", S["title"]))
+    story.append(Spacer(1, 0.4 * cm))
     story.append(HRFlowable(width="100%", thickness=2, color=ACCENT_COLOR, spaceAfter=10))
 
     chart_w_cm = (W - 4 * cm) / 2
