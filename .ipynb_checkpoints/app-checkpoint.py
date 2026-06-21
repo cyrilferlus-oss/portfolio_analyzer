@@ -4,7 +4,7 @@ from pathlib import Path
 
 from data_loader import DatabaseLoader
 from portfolio import Portfolio
-from charts import geo_chart, currency_chart, holdings_chart, category_chart
+from charts import geo_chart, currency_chart, holdings_chart
 
 DB_PATH = Path(__file__).parent / "data" / "base_de_donnees.xlsx"
 
@@ -109,28 +109,12 @@ def main():
     st.subheader("Composition du portefeuille")
     st.dataframe(portfolio.summary_table(), use_container_width=True, hide_index=True)
 
-    # Tableau positions > 5%
-    overweight = portfolio.overweight_positions(threshold=5.0)
-    if not overweight.empty:
-        st.divider()
-        st.subheader("⚠️ Positions représentant plus de 5% du portefeuille")
-        st.dataframe(
-            overweight.style.format({"Poids (%)": "{:.2f}%"}).highlight_between(
-                subset=["Poids (%)"], left=5, right=100, color="#ffe0e0"
-            ),
-            use_container_width=True,
-            hide_index=True,
-        )
-
     st.divider()
     st.subheader("Analyses graphiques")
 
-    tab_geo, tab_actions, tab_devise, tab_cat = st.tabs([
-        "🌍 Répartition Géographique",
-        "📊 Répartition par Action",
-        "💱 Répartition par Devise",
-        "🏷️ Répartition par Catégorie",
-    ])
+    tab_geo, tab_actions, tab_devise = st.tabs(
+        ["🌍 Répartition Géographique", "📊 Répartition par Action", "💱 Répartition par Devise"]
+    )
 
     with tab_geo:
         geo_df = portfolio.geo_breakdown()
@@ -149,12 +133,6 @@ def main():
         fig = currency_chart(cur_df)
         st.plotly_chart(fig, use_container_width=True)
         st.dataframe(cur_df.style.format({"Poids (%)": "{:.2f}%"}), hide_index=True)
-
-    with tab_cat:
-        cat_df = portfolio.category_breakdown()
-        fig = category_chart(cat_df)
-        st.plotly_chart(fig, use_container_width=True)
-        st.dataframe(cat_df.style.format({"Poids (%)": "{:.2f}%"}), hide_index=True)
 
 
 if __name__ == "__main__":

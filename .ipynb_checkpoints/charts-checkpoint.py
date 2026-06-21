@@ -54,7 +54,3 @@ def currency_chart(df: pd.DataFrame) -> go.Figure:
 
 def holdings_chart(df: pd.DataFrame) -> go.Figure:
     return bar_chart(df, x_col="Titre", y_col="Poids (%)", title="Répartition par Action")
-
-
-def category_chart(df: pd.DataFrame) -> go.Figure:
-    return pie_chart(df, "Répartition par Catégorie")

@@ -11,7 +11,6 @@ class Position:
     last_price: float
     devise: str
     geographie: str
-    categorie: str
 
 
 class Portfolio:
@@ -29,10 +28,6 @@ class Portfolio:
             if sec is None:
                 self.errors.append(f"ISIN introuvable : {isin}")
                 continue
-
-            raw_cat = sec.get("Catégorie", None)
-            categorie = "Other" if (raw_cat is None or str(raw_cat).strip() in ("", "nan", "NaN")) else str(raw_cat).strip()
-
             self.positions.append(
                 Position(
                     isin=isin,
@@ -41,7 +36,6 @@ class Portfolio:
                     last_price=float(sec.get("Last_Price", 0)),
                     devise=str(sec.get("Devise", "N/A")),
                     geographie=str(sec.get("Geographie", "N/A")),
-                    categorie=categorie,
                 )
             )
 
@@ -60,9 +54,6 @@ class Portfolio:
     def currency_breakdown(self) -> pd.DataFrame:
         return self._breakdown("devise")
 
-    def category_breakdown(self) -> pd.DataFrame:
-        return self._breakdown("categorie")
-
     def holdings_breakdown(self) -> pd.DataFrame:
         norm = self.normalized_weights()
         data = [
@@ -70,22 +61,6 @@ class Portfolio:
             for p, w in zip(self.positions, norm)
         ]
         return pd.DataFrame(data).sort_values("Poids (%)", ascending=False)
-
-    def overweight_positions(self, threshold: float = 5.0) -> pd.DataFrame:
-        norm = self.normalized_weights()
-        rows = [
-            {
-                "ISIN": p.isin,
-                "Nom": p.name,
-                "Catégorie": p.categorie,
-                "Devise": p.devise,
-                "Géographie": p.geographie,
-                "Poids (%)": round(w * 100, 2),
-            }
-            for p, w in zip(self.positions, norm)
-            if w * 100 > threshold
-        ]
-        return pd.DataFrame(rows).sort_values("Poids (%)", ascending=False)
 
     def _breakdown(self, field: str) -> pd.DataFrame:
         norm = self.normalized_weights()
@@ -102,7 +77,6 @@ class Portfolio:
             {
                 "ISIN": p.isin,
                 "Nom": p.name,
-                "Catégorie": p.categorie,
                 "Devise": p.devise,
                 "Géographie": p.geographie,
                 "Prix": p.last_price,
