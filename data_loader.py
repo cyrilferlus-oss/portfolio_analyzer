@@ -1,10 +1,11 @@
 import pandas as pd
 from pathlib import Path
+import io
 
 
 class DatabaseLoader:
-    def __init__(self, filepath: str | Path):
-        self.filepath = Path(filepath)
+    def __init__(self, filepath: str | Path | io.BytesIO):
+        self.filepath = filepath if isinstance(filepath, io.BytesIO) else Path(filepath)
         self._data: pd.DataFrame | None = None
 
     def load(self) -> pd.DataFrame:

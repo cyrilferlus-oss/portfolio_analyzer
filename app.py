@@ -2,13 +2,12 @@ import streamlit as st
 import pandas as pd
 from pathlib import Path
 from datetime import date
+import io
 
 from data_loader import DatabaseLoader
 from portfolio import Portfolio
 from charts import geo_chart, currency_chart, holdings_chart, category_chart
 from report import generate_pdf
-
-DB_PATH = Path(__file__).parent / "data" / "base_de_donnees.xlsx"
 
 st.set_page_config(
     page_title="Analyse de Portefeuille",
@@ -19,9 +18,11 @@ st.set_page_config(
 _DEFAULT_ROWS = 6
 
 
-@st.cache_resource
-def get_loader() -> DatabaseLoader:
-    loader = DatabaseLoader(DB_PATH)
+def get_loader_from_upload(uploaded_file) -> DatabaseLoader | None:
+    if uploaded_file is None:
+        return None
+    bytes_data = uploaded_file.read()
+    loader = DatabaseLoader(io.BytesIO(bytes_data))
     loader.load()
     return loader
 
@@ -60,10 +61,27 @@ def main():
     st.title("📈 Analyse de Portefeuille")
     st.markdown("Entrez vos ISIN et leurs poids pour analyser la composition de votre portefeuille.")
 
-    loader = get_loader()
-    db = loader.load()
+    st.divider()
 
-    with st.expander("📋 Voir la base de données disponible", expanded=False):
+    # Upload de la base de données
+    st.subheader("📂 Base de données")
+    uploaded_file = st.file_uploader(
+        "Uploadez votre fichier Excel (base de données)",
+        type=["xlsx"],
+        help="Le fichier reste sur votre navigateur et n'est jamais stocké en ligne.",
+    )
+
+    if uploaded_file is None:
+        st.info("Veuillez uploader votre base de données Excel pour commencer.")
+        return
+
+    loader = get_loader_from_upload(uploaded_file)
+    if loader is None:
+        st.error("Impossible de charger le fichier Excel.")
+        return
+
+    db = loader.load()
+    with st.expander("📋 Voir la base de données chargée", expanded=False):
         st.dataframe(db, use_container_width=True)
 
     st.divider()
