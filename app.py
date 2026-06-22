@@ -162,6 +162,24 @@ def main():
     st.subheader("Composition du portefeuille")
     st.dataframe(portfolio.summary_table(), use_container_width=True, hide_index=True)
 
+    # Indicateur de catégorisation
+    cat_df = portfolio.category_breakdown()
+    pct_categorized = cat_df[cat_df["Catégorie"] != "Other Investments"]["Poids (%)"].sum()
+    pct_other = 100 - pct_categorized
+    col_m1, col_m2 = st.columns(2)
+    with col_m1:
+        st.metric(
+            label="✅ Portefeuille correctement catégorisé",
+            value=f"{pct_categorized:.1f}%",
+        )
+    with col_m2:
+        st.metric(
+            label="⚠️ Non catégorisé (Other Investments)",
+            value=f"{pct_other:.1f}%",
+            delta=f"{-pct_other:.1f}%" if pct_other > 0 else None,
+            delta_color="inverse",
+        )
+
     overweight = portfolio.overweight_positions(threshold=5.0)
     if not overweight.empty:
         st.divider()

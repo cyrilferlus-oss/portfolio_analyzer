@@ -18,7 +18,7 @@ CATEGORY_MAP = {
 
 
 def normalize_category(raw: str) -> str:
-    return CATEGORY_MAP.get(str(raw).strip().lower(), str(raw).strip())
+    return CATEGORY_MAP.get(str(raw).strip().lower(), "Other Investments")
 
 
 class AllocationLoader:
