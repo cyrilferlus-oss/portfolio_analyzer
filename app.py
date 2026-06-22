@@ -7,7 +7,7 @@ import io
 from data_loader import DatabaseLoader
 from allocation_loader import AllocationLoader
 from portfolio import Portfolio
-from charts import geo_chart, currency_chart, holdings_chart, category_chart, allocation_comparison_chart
+from charts import geo_chart, currency_chart, category_chart, allocation_comparison_chart, categorization_gauge
 from report import generate_pdf
 
 st.set_page_config(
@@ -162,23 +162,12 @@ def main():
     st.subheader("Composition du portefeuille")
     st.dataframe(portfolio.summary_table(), use_container_width=True, hide_index=True)
 
-    # Indicateur de catégorisation
+    # Jauge de catégorisation
     cat_df = portfolio.category_breakdown()
     pct_categorized = cat_df[cat_df["Catégorie"] != "Other Investments"]["Poids (%)"].sum()
-    pct_other = 100 - pct_categorized
-    col_m1, col_m2 = st.columns(2)
-    with col_m1:
-        st.metric(
-            label="✅ Portefeuille correctement catégorisé",
-            value=f"{pct_categorized:.1f}%",
-        )
-    with col_m2:
-        st.metric(
-            label="⚠️ Non catégorisé (Other Investments)",
-            value=f"{pct_other:.1f}%",
-            delta=f"{-pct_other:.1f}%" if pct_other > 0 else None,
-            delta_color="inverse",
-        )
+    col_gauge, col_gauge_spacer = st.columns([1, 1])
+    with col_gauge:
+        st.plotly_chart(categorization_gauge(round(pct_categorized, 1)), use_container_width=True)
 
     overweight = portfolio.overweight_positions(threshold=5.0)
     if not overweight.empty:
@@ -196,7 +185,7 @@ def main():
     st.subheader("Analyses graphiques")
 
     # Construction des onglets selon si un profil est disponible
-    tab_labels = ["🌍 Géographie (Equity)", "📊 Actions", "💱 Devises", "🏷️ Catégories"]
+    tab_labels = ["🌍 Géographie (Equity)", "💱 Devises", "🏷️ Catégories"]
     if alloc_loader and risk_profile is not None:
         tab_labels.append("📐 Comparaison vs Benchmark")
 
@@ -207,28 +196,20 @@ def main():
         if geo_df.empty:
             st.info("Aucune position Equity dans le portefeuille.")
         else:
-            st.caption("Répartition géographique calculée sur les positions Equity uniquement.")
             st.plotly_chart(geo_chart(geo_df), use_container_width=True)
-            st.dataframe(geo_df.style.format({"Poids (%)": "{:.2f}%"}), hide_index=True)
 
     with tabs[1]:
-        hold_df = portfolio.holdings_breakdown()
-        st.plotly_chart(holdings_chart(hold_df), use_container_width=True)
-        st.dataframe(hold_df.style.format({"Poids (%)": "{:.2f}%"}), hide_index=True)
-
-    with tabs[2]:
         cur_df = portfolio.currency_breakdown()
         st.plotly_chart(currency_chart(cur_df), use_container_width=True)
         st.dataframe(cur_df.style.format({"Poids (%)": "{:.2f}%"}), hide_index=True)
 
-    with tabs[3]:
-        cat_df = portfolio.category_breakdown()
+    with tabs[2]:
         fig_cat = category_chart(cat_df)
         st.plotly_chart(fig_cat, use_container_width=True)
         st.dataframe(cat_df.style.format({"Poids (%)": "{:.2f}%"}), hide_index=True)
 
     if alloc_loader and risk_profile is not None:
-        with tabs[4]:
+        with tabs[3]:
             benchmark = alloc_loader.get_profile(risk_profile)
             cat_df = portfolio.category_breakdown()
             fig_comp = allocation_comparison_chart(cat_df, benchmark, str(risk_profile))
@@ -263,7 +244,6 @@ def main():
             summary_df=portfolio.summary_table(),
             overweight_df=overweight,
             fig_geo=geo_chart(portfolio.geo_breakdown()) if not portfolio.geo_breakdown().empty else None,
-            fig_holdings=holdings_chart(portfolio.holdings_breakdown()),
             fig_currency=currency_chart(portfolio.currency_breakdown()),
             fig_category=fig_cat,
         )

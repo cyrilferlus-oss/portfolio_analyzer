@@ -73,7 +73,6 @@ def generate_pdf(
     summary_df: pd.DataFrame,
     overweight_df: pd.DataFrame,
     fig_geo: go.Figure | None,
-    fig_holdings: go.Figure,
     fig_currency: go.Figure,
     fig_category: go.Figure,
 ) -> bytes:
@@ -118,7 +117,6 @@ def generate_pdf(
     charts = [
         (fig, caption) for fig, caption in [
             (fig_geo, "Répartition Géographique (Equity)"),
-            (fig_holdings, "Répartition par Action"),
             (fig_currency, "Répartition par Devise"),
             (fig_category, "Répartition par Catégorie"),
         ] if fig is not None
