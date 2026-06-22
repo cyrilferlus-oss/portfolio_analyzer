@@ -185,9 +185,9 @@ def main():
     st.subheader("Analyses graphiques")
 
     # Construction des onglets selon si un profil est disponible
-    tab_labels = ["🌍 Géographie (Equity)", "💱 Devises", "🏷️ Catégories"]
+    tab_labels = ["🌍 Géographie (Equity)", "💱 Devises"]
     if alloc_loader and risk_profile is not None:
-        tab_labels.append("📐 Comparaison vs Benchmark")
+        tab_labels.append("📐 Portfolio Allocation Comparison")
 
     tabs = st.tabs(tab_labels)
 
@@ -203,13 +203,10 @@ def main():
         st.plotly_chart(currency_chart(cur_df), use_container_width=True)
         st.dataframe(cur_df.style.format({"Poids (%)": "{:.2f}%"}), hide_index=True)
 
-    with tabs[2]:
-        fig_cat = category_chart(cat_df)
-        st.plotly_chart(fig_cat, use_container_width=True)
-        st.dataframe(cat_df.style.format({"Poids (%)": "{:.2f}%"}), hide_index=True)
+    fig_cat = category_chart(cat_df)
 
     if alloc_loader and risk_profile is not None:
-        with tabs[3]:
+        with tabs[2]:
             benchmark = alloc_loader.get_profile(risk_profile)
             cat_df = portfolio.category_breakdown()
             fig_comp = allocation_comparison_chart(cat_df, benchmark, str(risk_profile))
