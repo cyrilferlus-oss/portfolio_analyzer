@@ -87,12 +87,12 @@ def allocation_comparison_chart(client_df: pd.DataFrame, benchmark: dict[str, fl
     ))
 
     max_val = max(client_vals + bench_vals + [1])
+    layout = {**_LAYOUT, "legend": dict(orientation="h", x=0.5, xanchor="center", y=-0.15)}
     fig.update_layout(
-        **_LAYOUT,
+        **layout,
         title=f"Allocation client vs Benchmark {profile_label}% Equity",
         title_x=0.5,
         barmode="group",
-        legend=dict(orientation="h", x=0.5, xanchor="center", y=-0.15),
         yaxis=dict(title="Poids (%)", range=[0, max_val * 1.25]),
         xaxis=dict(title=""),
     )
