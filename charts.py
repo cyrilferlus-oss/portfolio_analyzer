@@ -32,10 +32,10 @@ def pie_chart(df: pd.DataFrame, title: str) -> go.Figure:
     fig.update_traces(
         pull=[0.05 if v < 10 else 0 for v in values],
     )
+    layout = {**_LAYOUT, "margin": dict(l=40, r=40, t=60, b=40)}
     fig.update_layout(
-        **_LAYOUT,
+        **layout,
         title=dict(text=title, x=0.5),
-        margin=dict(l=40, r=40, t=60, b=40),
     )
     return fig
 
@@ -53,33 +53,53 @@ def category_chart(df: pd.DataFrame) -> go.Figure:
 
 
 def categorization_gauge(pct: float) -> go.Figure:
+    # Dégradé continu rouge → jaune → vert avec seuils stricts (rouge <70, vert >95)
+    steps = []
+    n = 100
+    for i in range(n):
+        start = i
+        end = i + 1
+        # Normalise entre 0 et 1 avec seuils : rouge jusqu'à 70, vert à partir de 95
+        t = max(0.0, min(1.0, (i - 70) / (95 - 70)))
+        if t <= 0.5:
+            r, g = 220, int(220 * (t / 0.5))
+            b = 0
+        else:
+            r, g = int(220 * (1 - (t - 0.5) / 0.5)), 200
+            b = 0
+        color = f"rgb({r},{g},{b})"
+        steps.append({"range": [start, end], "color": color})
+
     fig = go.Figure(go.Indicator(
         mode="gauge+number",
         value=pct,
-        number={"suffix": "%", "font": {"size": 28, "color": "#1f4e79"}},
+        number={"suffix": "%", "font": {"size": 32, "color": "#1f4e79"}, "valueformat": ".1f"},
         title={"text": "Portefeuille correctement catégorisé", "font": {"size": 14, "color": "#1f4e79"}},
         gauge={
-            "axis": {"range": [0, 100], "ticksuffix": "%", "tickfont": {"size": 11}},
-            "bar": {"color": "#1f4e79", "thickness": 0.25},
-            "steps": [
-                {"range": [0, 33],   "color": "#d73027"},
-                {"range": [33, 66],  "color": "#fee08b"},
-                {"range": [66, 85],  "color": "#a6d96a"},
-                {"range": [85, 100], "color": "#1a9641"},
-            ],
+            "axis": {
+                "range": [0, 100],
+                "ticksuffix": "%",
+                "tickfont": {"size": 11},
+                "tickvals": [0, 25, 50, 70, 80, 95, 100],
+            },
+            "bar": {"color": "#1f4e79", "thickness": 0.55},
+            "steps": steps,
             "threshold": {
-                "line": {"color": "#1f4e79", "width": 4},
-                "thickness": 0.75,
+                "line": {"color": "black", "width": 3},
+                "thickness": 0.85,
                 "value": pct,
             },
             "shape": "angular",
+            "bgcolor": "white",
+            "borderwidth": 1,
+            "bordercolor": "#cccccc",
         },
     ))
     fig.update_layout(
         paper_bgcolor="rgba(0,0,0,0)",
         font=dict(family="Arial"),
         margin=dict(l=30, r=30, t=60, b=20),
-        height=280,
+        height=300,
     )
     return fig
 
