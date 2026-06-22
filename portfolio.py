@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 import pandas as pd
 from data_loader import DatabaseLoader
+from allocation_loader import normalize_category
 
 
 @dataclass
@@ -31,7 +32,7 @@ class Portfolio:
                 continue
 
             raw_cat = sec.get("Catégorie", None)
-            categorie = "Other" if (raw_cat is None or str(raw_cat).strip() in ("", "nan", "NaN")) else str(raw_cat).strip()
+            categorie = "Other Investments" if (raw_cat is None or str(raw_cat).strip() in ("", "nan", "NaN")) else str(raw_cat).strip()
 
             self.positions.append(
                 Position(
@@ -55,13 +56,33 @@ class Portfolio:
         return [p.weight / total for p in self.positions]
 
     def geo_breakdown(self) -> pd.DataFrame:
-        return self._breakdown("geographie")
+        # Géographie uniquement sur les positions Equity
+        norm = self.normalized_weights()
+        equity_total = sum(
+            w for p, w in zip(self.positions, norm)
+            if normalize_category(p.categorie) == "Equities"
+        )
+        totals: dict[str, float] = {}
+        for p, w in zip(self.positions, norm):
+            if normalize_category(p.categorie) != "Equities":
+                continue
+            key = p.geographie
+            pct = (w / equity_total * 100) if equity_total > 0 else 0
+            totals[key] = totals.get(key, 0) + pct
+        df = pd.DataFrame(list(totals.items()), columns=["Catégorie", "Poids (%)"])
+        return df.sort_values("Poids (%)", ascending=False).reset_index(drop=True)
 
     def currency_breakdown(self) -> pd.DataFrame:
         return self._breakdown("devise")
 
     def category_breakdown(self) -> pd.DataFrame:
-        return self._breakdown("categorie")
+        norm = self.normalized_weights()
+        totals: dict[str, float] = {}
+        for p, w in zip(self.positions, norm):
+            key = normalize_category(p.categorie)
+            totals[key] = totals.get(key, 0) + w * 100
+        df = pd.DataFrame(list(totals.items()), columns=["Catégorie", "Poids (%)"])
+        return df.sort_values("Poids (%)", ascending=False).reset_index(drop=True)
 
     def holdings_breakdown(self) -> pd.DataFrame:
         norm = self.normalized_weights()

@@ -5,8 +5,9 @@ from datetime import date
 import io
 
 from data_loader import DatabaseLoader
+from allocation_loader import AllocationLoader
 from portfolio import Portfolio
-from charts import geo_chart, currency_chart, holdings_chart, category_chart
+from charts import geo_chart, currency_chart, holdings_chart, category_chart, allocation_comparison_chart
 from report import generate_pdf
 
 st.set_page_config(
@@ -21,8 +22,15 @@ _DEFAULT_ROWS = 6
 def get_loader_from_upload(uploaded_file) -> DatabaseLoader | None:
     if uploaded_file is None:
         return None
-    bytes_data = uploaded_file.read()
-    loader = DatabaseLoader(io.BytesIO(bytes_data))
+    loader = DatabaseLoader(io.BytesIO(uploaded_file.read()))
+    loader.load()
+    return loader
+
+
+def get_allocation_loader(uploaded_file) -> AllocationLoader | None:
+    if uploaded_file is None:
+        return None
+    loader = AllocationLoader(io.BytesIO(uploaded_file.read()))
     loader.load()
     return loader
 
@@ -63,26 +71,37 @@ def main():
 
     st.divider()
 
-    # Upload de la base de données
-    st.subheader("📂 Base de données")
-    uploaded_file = st.file_uploader(
-        "Uploadez votre fichier Excel (base de données)",
-        type=["xlsx"],
-        help="Le fichier reste sur votre navigateur et n'est jamais stocké en ligne.",
-    )
+    # Uploads
+    st.subheader("📂 Fichiers de données")
+    col_up1, col_up2 = st.columns(2)
 
-    if uploaded_file is None:
+    with col_up1:
+        uploaded_db = st.file_uploader(
+            "Base de données (instruments)",
+            type=["xlsx"],
+            help="Fichier Excel contenant ISIN, catégorie, géographie, devise.",
+        )
+
+    with col_up2:
+        uploaded_alloc = st.file_uploader(
+            "Portfolio Allocation (benchmarks par profil)",
+            type=["xlsx"],
+            help="Fichier Excel contenant les allocations de référence par profil de risque.",
+        )
+
+    if uploaded_db is None:
         st.info("Veuillez uploader votre base de données Excel pour commencer.")
         return
 
-    loader = get_loader_from_upload(uploaded_file)
+    loader = get_loader_from_upload(uploaded_db)
     if loader is None:
-        st.error("Impossible de charger le fichier Excel.")
+        st.error("Impossible de charger la base de données.")
         return
 
-    db = loader.load()
+    alloc_loader = get_allocation_loader(uploaded_alloc) if uploaded_alloc else None
+
     with st.expander("📋 Voir la base de données chargée", expanded=False):
-        st.dataframe(db, use_container_width=True)
+        st.dataframe(loader.load(), use_container_width=True)
 
     st.divider()
 
@@ -90,6 +109,16 @@ def main():
 
     with col_left:
         isins, weights, error = get_portfolio_input()
+
+        # Profil de risque
+        risk_profile = None
+        if alloc_loader:
+            st.subheader("Profil de risque")
+            profiles = alloc_loader.available_profiles()
+            profile_labels = [f"{p}% Equity" for p in profiles]
+            selected_label = st.selectbox("Sélectionnez le profil de l'investisseur", profile_labels)
+            risk_profile = profiles[profile_labels.index(selected_label)]
+
         analyze_btn = st.button("Analyser", type="primary", use_container_width=True)
 
     with col_right:
@@ -148,33 +177,65 @@ def main():
     st.divider()
     st.subheader("Analyses graphiques")
 
-    tab_geo, tab_actions, tab_devise, tab_cat = st.tabs([
-        "🌍 Répartition Géographique",
-        "📊 Répartition par Action",
-        "💱 Répartition par Devise",
-        "🏷️ Répartition par Catégorie",
-    ])
+    # Construction des onglets selon si un profil est disponible
+    tab_labels = ["🌍 Géographie (Equity)", "📊 Actions", "💱 Devises", "🏷️ Catégories"]
+    if alloc_loader and risk_profile is not None:
+        tab_labels.append("📐 Comparaison vs Benchmark")
 
-    with tab_geo:
+    tabs = st.tabs(tab_labels)
+
+    with tabs[0]:
         geo_df = portfolio.geo_breakdown()
-        st.plotly_chart(geo_chart(geo_df), use_container_width=True)
-        st.dataframe(geo_df.style.format({"Poids (%)": "{:.2f}%"}), hide_index=True)
+        if geo_df.empty:
+            st.info("Aucune position Equity dans le portefeuille.")
+        else:
+            st.caption("Répartition géographique calculée sur les positions Equity uniquement.")
+            st.plotly_chart(geo_chart(geo_df), use_container_width=True)
+            st.dataframe(geo_df.style.format({"Poids (%)": "{:.2f}%"}), hide_index=True)
 
-    with tab_actions:
+    with tabs[1]:
         hold_df = portfolio.holdings_breakdown()
         st.plotly_chart(holdings_chart(hold_df), use_container_width=True)
         st.dataframe(hold_df.style.format({"Poids (%)": "{:.2f}%"}), hide_index=True)
 
-    with tab_devise:
+    with tabs[2]:
         cur_df = portfolio.currency_breakdown()
         st.plotly_chart(currency_chart(cur_df), use_container_width=True)
         st.dataframe(cur_df.style.format({"Poids (%)": "{:.2f}%"}), hide_index=True)
 
-    with tab_cat:
+    with tabs[3]:
         cat_df = portfolio.category_breakdown()
         fig_cat = category_chart(cat_df)
         st.plotly_chart(fig_cat, use_container_width=True)
         st.dataframe(cat_df.style.format({"Poids (%)": "{:.2f}%"}), hide_index=True)
+
+    if alloc_loader and risk_profile is not None:
+        with tabs[4]:
+            benchmark = alloc_loader.get_profile(risk_profile)
+            cat_df = portfolio.category_breakdown()
+            fig_comp = allocation_comparison_chart(cat_df, benchmark, str(risk_profile))
+            st.plotly_chart(fig_comp, use_container_width=True)
+
+            # Tableau comparatif
+            all_cats = sorted(set(cat_df["Catégorie"].tolist()) | set(benchmark.keys()))
+            client_map = dict(zip(cat_df["Catégorie"], cat_df["Poids (%)"]))
+            comp_rows = [
+                {
+                    "Catégorie": c,
+                    "Client (%)": round(client_map.get(c, 0), 2),
+                    f"Benchmark {risk_profile}% Equity (%)": round(benchmark.get(c, 0), 2),
+                    "Écart (%)": round(client_map.get(c, 0) - benchmark.get(c, 0), 2),
+                }
+                for c in all_cats
+            ]
+            comp_df = pd.DataFrame(comp_rows)
+            st.dataframe(
+                comp_df.style
+                    .format({c: "{:.2f}%" for c in comp_df.columns if "%" in c})
+                    .applymap(lambda v: "color: red" if v < -2 else ("color: green" if v > 2 else ""), subset=["Écart (%)"]),
+                hide_index=True,
+                use_container_width=True,
+            )
 
     st.divider()
     st.subheader("Téléchargement")
@@ -183,7 +244,7 @@ def main():
         pdf_bytes = generate_pdf(
             summary_df=portfolio.summary_table(),
             overweight_df=overweight,
-            fig_geo=geo_chart(portfolio.geo_breakdown()),
+            fig_geo=geo_chart(portfolio.geo_breakdown()) if not portfolio.geo_breakdown().empty else None,
             fig_holdings=holdings_chart(portfolio.holdings_breakdown()),
             fig_currency=currency_chart(portfolio.currency_breakdown()),
             fig_category=fig_cat,

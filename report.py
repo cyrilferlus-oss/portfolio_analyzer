@@ -72,7 +72,7 @@ def _df_to_table(df: pd.DataFrame, col_widths: list[float] | None = None) -> Tab
 def generate_pdf(
     summary_df: pd.DataFrame,
     overweight_df: pd.DataFrame,
-    fig_geo: go.Figure,
+    fig_geo: go.Figure | None,
     fig_holdings: go.Figure,
     fig_currency: go.Figure,
     fig_category: go.Figure,
@@ -116,10 +116,12 @@ def generate_pdf(
     chart_h_cm = chart_w_cm * 0.62
 
     charts = [
-        (fig_geo, "Répartition Géographique"),
-        (fig_holdings, "Répartition par Action"),
-        (fig_currency, "Répartition par Devise"),
-        (fig_category, "Répartition par Catégorie"),
+        (fig, caption) for fig, caption in [
+            (fig_geo, "Répartition Géographique (Equity)"),
+            (fig_holdings, "Répartition par Action"),
+            (fig_currency, "Répartition par Devise"),
+            (fig_category, "Répartition par Catégorie"),
+        ] if fig is not None
     ]
 
     for i in range(0, len(charts), 2):

@@ -58,3 +58,42 @@ def holdings_chart(df: pd.DataFrame) -> go.Figure:
 
 def category_chart(df: pd.DataFrame) -> go.Figure:
     return pie_chart(df, "Répartition par Catégorie")
+
+
+def allocation_comparison_chart(client_df: pd.DataFrame, benchmark: dict[str, float], profile_label: str) -> go.Figure:
+    # Toutes les catégories présentes dans l'un ou l'autre
+    all_cats = sorted(set(client_df["Catégorie"].tolist()) | set(benchmark.keys()))
+
+    client_map = dict(zip(client_df["Catégorie"], client_df["Poids (%)"]))
+    client_vals = [round(client_map.get(c, 0), 2) for c in all_cats]
+    bench_vals = [round(benchmark.get(c, 0), 2) for c in all_cats]
+
+    fig = go.Figure()
+    fig.add_trace(go.Bar(
+        name="Portefeuille client",
+        x=all_cats,
+        y=client_vals,
+        text=[f"{v:.1f}%" for v in client_vals],
+        textposition="outside",
+        marker_color="#2e75b6",
+    ))
+    fig.add_trace(go.Bar(
+        name=f"Benchmark ({profile_label}% Equity)",
+        x=all_cats,
+        y=bench_vals,
+        text=[f"{v:.1f}%" for v in bench_vals],
+        textposition="outside",
+        marker_color="#ed7d31",
+    ))
+
+    max_val = max(client_vals + bench_vals + [1])
+    fig.update_layout(
+        **_LAYOUT,
+        title=f"Allocation client vs Benchmark {profile_label}% Equity",
+        title_x=0.5,
+        barmode="group",
+        legend=dict(orientation="h", x=0.5, xanchor="center", y=-0.15),
+        yaxis=dict(title="Poids (%)", range=[0, max_val * 1.25]),
+        xaxis=dict(title=""),
+    )
+    return fig
