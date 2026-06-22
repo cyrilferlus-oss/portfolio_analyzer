@@ -232,7 +232,7 @@ def main():
             st.dataframe(
                 comp_df.style
                     .format({c: "{:.2f}%" for c in comp_df.columns if "%" in c})
-                    .applymap(lambda v: "color: red" if v < -2 else ("color: green" if v > 2 else ""), subset=["Écart (%)"]),
+                    .map(lambda v: "color: red" if v < -2 else ("color: green" if v > 2 else ""), subset=["Écart (%)"]),
                 hide_index=True,
                 use_container_width=True,
             )
