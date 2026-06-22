@@ -1,3 +1,4 @@
+import math
 import plotly.express as px
 import plotly.graph_objects as go
 import pandas as pd
@@ -53,53 +54,81 @@ def category_chart(df: pd.DataFrame) -> go.Figure:
 
 
 def categorization_gauge(pct: float) -> go.Figure:
-    # Dégradé continu rouge → jaune → vert avec seuils stricts (rouge <70, vert >95)
-    steps = []
-    n = 100
-    for i in range(n):
-        start = i
-        end = i + 1
-        # Normalise entre 0 et 1 avec seuils : rouge jusqu'à 70, vert à partir de 95
-        t = max(0.0, min(1.0, (i - 70) / (95 - 70)))
-        if t <= 0.5:
-            r, g = 220, int(220 * (t / 0.5))
-            b = 0
-        else:
-            r, g = int(220 * (1 - (t - 0.5) / 0.5)), 200
-            b = 0
-        color = f"rgb({r},{g},{b})"
-        steps.append({"range": [start, end], "color": color})
+    fig = go.Figure()
 
-    fig = go.Figure(go.Indicator(
-        mode="gauge+number",
-        value=pct,
-        number={"suffix": "%", "font": {"size": 32, "color": "#1f4e79"}, "valueformat": ".1f"},
-        title={"text": "Portefeuille correctement catégorisé", "font": {"size": 14, "color": "#1f4e79"}},
-        gauge={
-            "axis": {
-                "range": [0, 100],
-                "ticksuffix": "%",
-                "tickfont": {"size": 11},
-                "tickvals": [0, 25, 50, 70, 80, 95, 100],
-            },
-            "bar": {"color": "#1f4e79", "thickness": 0.55},
-            "steps": steps,
-            "threshold": {
-                "line": {"color": "black", "width": 3},
-                "thickness": 0.85,
-                "value": pct,
-            },
-            "shape": "angular",
-            "bgcolor": "white",
-            "borderwidth": 1,
-            "bordercolor": "#cccccc",
-        },
+    # Arc coloré en dégradé continu rouge → vert (200 segments)
+    n = 200
+    r_outer, r_inner = 1.0, 0.55
+    for i in range(n):
+        a1 = math.pi * (1 - i / n)
+        a2 = math.pi * (1 - (i + 1) / n)
+        pos = i / n * 100
+        t = max(0.0, min(1.0, (pos - 70) / (95 - 70)))
+        r_c = int(220 * max(0, 1 - t * 2)) if t <= 0.5 else 0
+        g_c = int(220 * min(1, t * 2)) if t <= 0.5 else int(180 + 20 * (t - 0.5) * 2)
+        color = f"rgb({r_c},{g_c},0)"
+        xs = [r_inner * math.cos(a1), r_outer * math.cos(a1),
+              r_outer * math.cos(a2), r_inner * math.cos(a2), r_inner * math.cos(a1)]
+        ys = [r_inner * math.sin(a1), r_outer * math.sin(a1),
+              r_outer * math.sin(a2), r_inner * math.sin(a2), r_inner * math.sin(a1)]
+        fig.add_trace(go.Scatter(
+            x=xs, y=ys, fill="toself", fillcolor=color,
+            line=dict(color=color, width=0),
+            mode="lines", showlegend=False, hoverinfo="none",
+        ))
+
+    # Grande flèche triangulaire depuis le centre
+    needle_angle = math.pi * (1 - pct / 100)
+    needle_len = 0.82
+    needle_width = 0.05
+    perp = needle_angle + math.pi / 2
+    x_tip = needle_len * math.cos(needle_angle)
+    y_tip = needle_len * math.sin(needle_angle)
+    fig.add_trace(go.Scatter(
+        x=[needle_width * math.cos(perp), x_tip, -needle_width * math.cos(perp), needle_width * math.cos(perp)],
+        y=[needle_width * math.sin(perp), y_tip, -needle_width * math.sin(perp), needle_width * math.sin(perp)],
+        fill="toself", fillcolor="#1f4e79",
+        line=dict(color="#1f4e79", width=1),
+        mode="lines", showlegend=False, hoverinfo="none",
     ))
+
+    # Cercle central
+    theta = [i * 2 * math.pi / 60 for i in range(61)]
+    fig.add_trace(go.Scatter(
+        x=[0.07 * math.cos(t) for t in theta],
+        y=[0.07 * math.sin(t) for t in theta],
+        fill="toself", fillcolor="#1f4e79",
+        line=dict(color="#1f4e79"), mode="lines",
+        showlegend=False, hoverinfo="none",
+    ))
+
+    # Ticks
+    for val, label in [(0, "0%"), (25, "25%"), (50, "50%"), (70, "70%"), (95, "95%"), (100, "100%")]:
+        a = math.pi * (1 - val / 100)
+        fig.add_annotation(
+            x=1.22 * math.cos(a), y=1.22 * math.sin(a),
+            text=label, showarrow=False,
+            font=dict(size=10, color="#555", family="Arial"),
+        )
+
+    # Valeur centrale
+    fig.add_annotation(
+        x=0, y=-0.25, text=f"<b>{pct:.1f}%</b>",
+        showarrow=False, font=dict(size=30, color="#1f4e79", family="Arial"),
+    )
+    fig.add_annotation(
+        x=0, y=-0.48, text="Portefeuille correctement catégorisé",
+        showarrow=False, font=dict(size=11, color="#555", family="Arial"),
+    )
+
     fig.update_layout(
         paper_bgcolor="rgba(0,0,0,0)",
-        font=dict(family="Arial"),
-        margin=dict(l=30, r=30, t=60, b=20),
-        height=300,
+        plot_bgcolor="rgba(0,0,0,0)",
+        xaxis=dict(visible=False, range=[-1.4, 1.4]),
+        yaxis=dict(visible=False, range=[-0.65, 1.25], scaleanchor="x"),
+        margin=dict(l=10, r=10, t=10, b=10),
+        height=320,
+        showlegend=False,
     )
     return fig
 
