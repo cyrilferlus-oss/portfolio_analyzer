@@ -18,25 +18,29 @@ def pie_chart(df: pd.DataFrame, title: str) -> go.Figure:
     labels = df["Catégorie"].tolist()
     values = df["Poids (%)"].tolist()
 
-    # Labels outside with arrow for slices < 10%, inside otherwise
+    # Pour les petites tranches : label sur deux lignes pour éviter la troncature
+    display_labels = [
+        l.replace("Gold and other commodities", "Gold and<br>other commodities") if v < 10 else l
+        for l, v in zip(labels, values)
+    ]
+
     textpositions = ["outside" if v < 10 else "inside" for v in values]
 
     fig = go.Figure(go.Pie(
-        labels=labels,
+        labels=display_labels,
         values=values,
         hole=0.35,
         textposition=textpositions,
         textinfo="percent+label",
         marker=dict(colors=PALETTE[:len(labels)]),
         insidetextorientation="radial",
+        pull=[0.12 if v < 10 else 0 for v in values],
     ))
-    fig.update_traces(
-        pull=[0.05 if v < 10 else 0 for v in values],
-    )
-    layout = {**_LAYOUT, "margin": dict(l=40, r=40, t=60, b=40)}
+
+    layout = {**_LAYOUT, "margin": dict(l=60, r=60, t=80, b=40)}
     fig.update_layout(
         **layout,
-        title=dict(text=title, x=0.5),
+        title=dict(text=title, x=0.5, y=0.97, xanchor="center", yanchor="top"),
     )
     return fig
 
