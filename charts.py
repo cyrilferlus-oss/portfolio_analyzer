@@ -34,7 +34,7 @@ def pie_chart(df: pd.DataFrame, title: str) -> go.Figure:
         textinfo="percent+label",
         marker=dict(colors=PALETTE[:len(labels)]),
         insidetextorientation="radial",
-        pull=[0.12 if v < 10 else 0 for v in values],
+        pull=[0.25 if v < 3 else (0.12 if v < 10 else 0) for v in values],
         domain=dict(x=[0, 0.75], y=[0, 0.82]),
     ))
 
