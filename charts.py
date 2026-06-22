@@ -35,12 +35,13 @@ def pie_chart(df: pd.DataFrame, title: str) -> go.Figure:
         marker=dict(colors=PALETTE[:len(labels)]),
         insidetextorientation="radial",
         pull=[0.12 if v < 10 else 0 for v in values],
+        domain=dict(x=[0, 0.75], y=[0, 0.82]),
     ))
 
-    layout = {**_LAYOUT, "margin": dict(l=60, r=60, t=80, b=40)}
+    layout = {**_LAYOUT, "margin": dict(l=60, r=20, t=60, b=20)}
     fig.update_layout(
         **layout,
-        title=dict(text=title, x=0.5, y=0.97, xanchor="center", yanchor="top"),
+        title=dict(text=title, x=0.38, y=0.98, xanchor="center", yanchor="top"),
     )
     return fig
 

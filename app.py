@@ -225,10 +225,21 @@ def main():
                 for c in all_cats
             ]
             comp_df = pd.DataFrame(comp_rows)
+
+            def fmt_ecart(v):
+                if isinstance(v, float):
+                    return f"+{v:.2f}%" if v > 0 else f"{v:.2f}%"
+                return v
+
+            def color_ecart(v):
+                if not isinstance(v, float):
+                    return ""
+                return "color: red; font-weight: bold" if abs(v) >= 5 else "color: green; font-weight: bold"
+
             st.dataframe(
                 comp_df.style
-                    .format({c: "{:.2f}%" for c in comp_df.columns if "%" in c})
-                    .map(lambda v: "color: red" if v < -2 else ("color: green" if v > 2 else ""), subset=["Écart (%)"]),
+                    .format({"Client (%)": "{:.2f}%", f"Benchmark {risk_profile}% Equity (%)": "{:.2f}%", "Écart (%)": fmt_ecart})
+                    .map(color_ecart, subset=["Écart (%)"]),
                 hide_index=True,
                 use_container_width=True,
             )
